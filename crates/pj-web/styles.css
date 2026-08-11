@@ -880,9 +880,22 @@ body::-webkit-scrollbar-corner,
 .column-new {
   flex: 0 0 auto;
   align-self: flex-start;
-  width: 230px;
-  background: transparent;
-  border-style: dashed;
+  width: 224px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 13%, var(--bg-raised)),
+      color-mix(in srgb, var(--accent) 5%, var(--bg-panel))
+    );
+  border: 2px solid color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+  border-top: 5px solid var(--accent);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 0.12);
+}
+
+.column-new:hover,
+.column-new:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
 }
 
 /* A board-wide notice with an action attached — something the board needs the
@@ -1007,9 +1020,21 @@ body::-webkit-scrollbar-corner,
 
 .new-card {
   display: flex;
-  gap: 8px;
-  padding: 10px;
-  border-top: 1px solid var(--border);
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.column-new .input {
+  background: var(--bg-raised);
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border-strong));
+}
+
+.column-new .button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
 }
 
 /* ---------- task: drawer on the board, page at its own address ---------- */

@@ -116,7 +116,7 @@ fn NewColumn(store: Store) -> impl IntoView {
                         on:input=move |ev| draft.set(event_target_value(&ev))
                         on:keydown=move |ev| if ev.key() == "Enter" { add() }
                     />
-                    <button class="button" on:click=move |_| add()>"Add"</button>
+                    <button class="button primary" on:click=move |_| add()>"Add"</button>
                 </div>
             </div>
         </Show>
