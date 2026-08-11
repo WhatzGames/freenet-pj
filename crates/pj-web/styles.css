@@ -36,6 +36,9 @@
   --accent: #5ecfbf;
   --accent-ink: #061f1b;
   --accent-soft: #f1c36d;
+  --scrollbar-track-solid: #202620;
+  --scrollbar-thumb-solid: #687462;
+  --scrollbar-thumb-hover-solid: #5ecfbf;
   --scrollbar-track: color-mix(in srgb, var(--bg) 78%, var(--border));
   --scrollbar-thumb: color-mix(in srgb, var(--border-strong) 78%, var(--text-muted));
   --scrollbar-thumb-hover: color-mix(in srgb, var(--accent) 58%, var(--text-muted));
@@ -90,6 +93,9 @@
   --accent: #0f766e;
   --accent-ink: #ffffff;
   --accent-soft: #8a6308;
+  --scrollbar-track-solid: #dbe2d5;
+  --scrollbar-thumb-solid: #8c9984;
+  --scrollbar-thumb-hover-solid: #0f766e;
   --scrollbar-track: color-mix(in srgb, var(--bg-soft) 82%, var(--border));
   --scrollbar-thumb: color-mix(in srgb, var(--border-strong) 72%, var(--text-muted));
   --scrollbar-thumb-hover: color-mix(in srgb, var(--accent) 62%, var(--border-strong));
@@ -656,14 +662,21 @@ h2 {
 }
 
 .directory,
+.app,
+html,
+body,
 .columns,
 .cards,
 .detail {
+  scrollbar-color: var(--scrollbar-thumb-solid) var(--scrollbar-track-solid);
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   scrollbar-width: thin;
 }
 
 .directory::-webkit-scrollbar,
+.app::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
 .columns::-webkit-scrollbar,
 .cards::-webkit-scrollbar,
 .detail::-webkit-scrollbar {
@@ -672,30 +685,46 @@ h2 {
 }
 
 .directory::-webkit-scrollbar-track,
+.app::-webkit-scrollbar-track,
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
 .columns::-webkit-scrollbar-track,
 .cards::-webkit-scrollbar-track,
 .detail::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-solid);
   background: var(--scrollbar-track);
   border-radius: 999px;
 }
 
 .directory::-webkit-scrollbar-thumb,
+.app::-webkit-scrollbar-thumb,
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
 .columns::-webkit-scrollbar-thumb,
 .cards::-webkit-scrollbar-thumb,
 .detail::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-solid);
   background: var(--scrollbar-thumb);
-  border: 2px solid var(--scrollbar-track);
+  border: 2px solid var(--scrollbar-track-solid);
+  border-color: var(--scrollbar-track);
   border-radius: 999px;
 }
 
 .directory::-webkit-scrollbar-thumb:hover,
+.app::-webkit-scrollbar-thumb:hover,
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
 .columns::-webkit-scrollbar-thumb:hover,
 .cards::-webkit-scrollbar-thumb:hover,
 .detail::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover-solid);
   background: var(--scrollbar-thumb-hover);
 }
 
 .directory::-webkit-scrollbar-corner,
+.app::-webkit-scrollbar-corner,
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
 .columns::-webkit-scrollbar-corner,
 .cards::-webkit-scrollbar-corner,
 .detail::-webkit-scrollbar-corner {
