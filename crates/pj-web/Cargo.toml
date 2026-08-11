@@ -1,0 +1,95 @@
+[package]
+name = "pj-web"
+description = "Leptos frontend for freenet-pj, served from Freenet itself"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+rust-version = "1.85"
+
+# Standalone workspace: this crate only ever builds for wasm32-unknown-unknown,
+# so it stays out of the root workspace to keep `cargo test` there native.
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pj-core = { path = "../pj-core" }
+pj-identity-proto = { path = "../pj-identity-proto" }
+pj-prefs-proto = { path = "../pj-prefs-proto" }
+# `net` pulls in the browser WebSocket client (client_api::WebApi).
+freenet-stdlib = { version = "0.8.4", features = ["net"] }
+
+leptos = { version = "0.8", features = ["csr"] }
+
+wasm-bindgen = "0.2.126"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+console_error_panic_hook = "0.1"
+
+ed25519-dalek = { version = "3", default-features = false, features = ["alloc"] }
+bs58 = "0.5"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+    "Window",
+    "Document",
+    "Location",
+    "Storage",
+    "Crypto",
+    "WebSocket",
+    "BinaryType",
+    "MessageEvent",
+    "ErrorEvent",
+    "CloseEvent",
+    "Element",
+    "HtmlElement",
+    "HtmlInputElement",
+    "HtmlTextAreaElement",
+    "HtmlSelectElement",
+    "DragEvent",
+    "DataTransfer",
+    "Navigator",
+    "Clipboard",
+]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+
+# Kept in step with the root workspace's table by hand: this crate is its own
+# workspace (see above), so it cannot inherit them. If you change one, change both.
+[lints.rust]
+warnings = "deny"
+unsafe_code = "forbid"
+elided_lifetimes_in_paths = "deny"
+unused_qualifications = "deny"
+
+# `unreachable_pub` is on everywhere else and found real things there. Here it
+# fires on Leptos's `#[component]` expansion — the macro emits a `pub` item and
+# blames the line the component was written on, so there is nothing to change in
+# our source. Every item this crate *does* write is `pub(crate)`; that was done by
+# hand while the lint was on, and is worth keeping that way.
+# unreachable_pub = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+# `Store` is a `Copy` struct of ~50 signal handles, 396 bytes, and it is the prop
+# every component takes. The lint's advice is `&Store`, which a Leptos prop cannot
+# be: props have to be owned and `'static`. The fix it is really asking for is to
+# put the signals behind one `StoredValue` so `Store` becomes 8 bytes — a genuine
+# improvement, and a rewrite of every `self.field` in a 2000-line file. Not today,
+# and not worth pretending otherwise with a scattered `#[allow]`.
+large_types_passed_by_value = "allow"

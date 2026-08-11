@@ -1,0 +1,86 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/pj-core",
+    "crates/pj-identity-proto",
+    "crates/pj-board-contract",
+    "crates/pj-task-contract",
+    "crates/pj-registry-contract",
+    "crates/pj-org-contract",
+    "crates/pj-user-contract",
+    "crates/pj-identity-delegate",
+    "crates/pj-prefs-proto",
+    "crates/pj-prefs-delegate",
+]
+# The Leptos frontend only ever builds for wasm32-unknown-unknown, so it is kept
+# out of the workspace. That keeps `cargo test` at the root native and green.
+exclude = ["crates/pj-web"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+rust-version = "1.85"
+
+# Lints are denied, not warned. A warning nobody has to act on is a warning
+# everybody stops reading, and this codebase is one where a missed detail — an
+# order-dependent fold, a truncating cast in a clock — costs everybody's data.
+#
+# There are no `#[allow]` attributes anywhere in the tree. The four exceptions
+# below are the whole list, they are here so they can be argued with, and each is
+# about ceremony rather than defects.
+[workspace.lints.rust]
+warnings = "deny"
+unsafe_code = "forbid"
+unreachable_pub = "deny"
+elided_lifetimes_in_paths = "deny"
+unused_qualifications = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+
+# `unwrap` says "this cannot fail" and gives the next reader no way to check.
+# `expect` says the same thing and names the assumption, so a panic arrives with
+# the reason it was thought impossible. Denied in tests too — a test that panics
+# on a bare `unwrap` reports a line number where it could have reported a claim.
+unwrap_used = "deny"
+
+# Would add `#[must_use]` to ~130 pure accessors and `-> Self` builders. It does
+# catch "called it and ignored the result", but at a ratio of one attribute per
+# function across the whole public surface, and none of these are expensive
+# enough for ignoring the result to be a bug worth that much noise.
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+
+# Would add `# Errors` and `# Panics` sections to ~50 functions. Nearly all of
+# them are `decode` (errors: the bytes were not what we expected) and
+# `encode`/`expect` on infallible serialisation. Sections restating that would
+# dilute the prose that is actually load-bearing here.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+[workspace.dependencies]
+pj-core = { path = "crates/pj-core" }
+pj-identity-proto = { path = "crates/pj-identity-proto" }
+pj-prefs-proto = { path = "crates/pj-prefs-proto" }
+
+freenet-stdlib = "0.8.4"
+
+serde = { version = "1", features = ["derive"] }
+bincode = "1"
+blake3 = "1"
+bs58 = "0.5"
+thiserror = "2"
+# `default-features = false` drops the `zeroize`/`fast` precomputed tables; the
+# contract only ever verifies, and smaller wasm matters when the whole app has
+# to travel over Freenet.
+ed25519-dalek = { version = "3", default-features = false, features = ["alloc"] }
+
+# Contracts are size-sensitive: they are stored and moved around the network.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

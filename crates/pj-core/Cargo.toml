@@ -1,0 +1,18 @@
+[package]
+name = "pj-core"
+description = "Domain model and CRDT for freenet-pj project boards"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+bincode.workspace = true
+blake3.workspace = true
+bs58.workspace = true
+thiserror.workspace = true
+ed25519-dalek.workspace = true
+
+[lints]
+workspace = true

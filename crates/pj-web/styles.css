@@ -1,0 +1,1237 @@
+/* freenet-pj — dark-first, with a light variant for viewers who prefer it.
+ *
+ * Colour is split into four registers that must not borrow from each other:
+ *
+ *   brand/interactive  --accent      links, buttons, focus, selection
+ *   workflow stage     --stage-h     a hue per column, set by the board
+ *   people             --member-h    a hue per member, derived from their key
+ *   severity           --ok/--pending/--danger/--info
+ *
+ * Before this split the accent did all four jobs at once, which left the board —
+ * the screen people actually look at — carrying no colour information at all.
+ */
+
+/* The palette, in priority order:
+ *
+ *   Blue Spruce    #0f766e  hue 175   brand and interaction
+ *   Icy Blue       #b3e5fc  hue 199   the far end of the stage ramp, and info
+ *   Indigo Velvet  #49306b  hue 265   the dark theme's surfaces
+ *   Dusty Grape    #635380  hue 261   mid stage, base of the per-person band
+ *   Dusty Mauve    #90708c  hue 308   earliest stage
+ *
+ * Severity keeps red, amber and green. They are not in the palette, and they are
+ * the one place where colour has to mean something before it is read — nothing in
+ * a purple family says "this deletes your work".
+ */
+:root {
+  /* Surfaces are Indigo Velvet taken down to background weight, so the dark theme
+   * reads as tinted rather than neutral slate. */
+  --bg: #14101c;
+  --bg-panel: #1e1830;
+  --bg-raised: #272038;
+  --border: #3a2f52;
+  --border-strong: #544671;
+  --text: #ede9f5;
+  --text-muted: #a79cbe;
+  /* Blue Spruce is far too dark to read on these surfaces; this is the same hue
+   * carried up to a legible lightness so the brand stays teal in both themes. */
+  --accent: #45c7b8;
+  --accent-ink: #06231f;
+  --danger: #f0787a;
+  /* Blue Spruce, not a separate green. Two greens a few degrees apart read as an
+   * error rather than a distinction. */
+  --ok: #45c7b8;
+  --pending: #e6c86e;
+  --info: #b3e5fc;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.25);
+
+  /* Only the saturation and lightness live here. A var() inside a custom property
+   * is substituted where that property is *declared* — so a `--stage-fg` built
+   * from `var(--stage-h)` up here would resolve against the fallback on :root and
+   * inherit the same colour to every column. The hue is applied at the point of
+   * use instead, where the element's own --stage-h / --member-h is in scope. */
+  /* One saturation across every hue, so it has to suit the touchiest of them:
+   * at 60% the mauve end came out hot pink rather than dusty. */
+  --stage-s: 46%;
+  --stage-l: 70%;
+  --stage-bg-s: 40%;
+  --stage-bg-l: 22%;
+  --person-s: 62%;
+  --person-l: 74%;
+  --person-bg-s: 40%;
+  --person-bg-l: 24%;
+  --person-br-s: 36%;
+  --person-br-l: 38%;
+}
+
+/* Keyed off an explicit attribute rather than `prefers-color-scheme` so the
+ * in-app switch can override the system. The attribute is set from the operating
+ * system's preference in index.html, before the first paint. */
+:root[data-theme="light"] {
+  /* A real elevation ladder: page → panel → card. Previously --bg-raised and
+   * --bg-panel were both #ffffff, so a card and the column holding it were the
+   * same colour and only a 1.29:1 border told them apart. */
+  /* The page is a pale wash of Icy Blue, so the light theme sits in the same
+   * family as the dark one instead of reverting to neutral grey. */
+  --bg: #e8f1f8;
+  --bg-panel: #f7fbfd;
+  --bg-raised: #ffffff;
+  --border: #c6d6e4;
+  --border-strong: #8fa3b6;
+  /* Ink derived from Indigo Velvet rather than black. */
+  --text: #1e1730;
+  --text-muted: #59506b;
+  /* Blue Spruce unmodified: measured 5.47:1 as text on white and 5.47:1 under
+   * white text, so it carries both jobs. */
+  --accent: #0f766e;
+  --accent-ink: #ffffff;
+  --danger: #b3261e;
+  --ok: #0f766e;
+  --pending: #8a6308;
+  --info: #49306b;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 8px 24px rgb(16 24 40 / 0.08);
+
+  --stage-s: 48%;
+  --stage-l: 34%;
+  --stage-bg-s: 60%;
+  --stage-bg-l: 92%;
+  --person-s: 52%;
+  --person-l: 30%;
+  --person-bg-s: 62%;
+  --person-bg-l: 92%;
+  --person-br-s: 42%;
+  --person-br-l: 74%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Nothing in this app is meant to scroll sideways; the board scrolls its own
+   * columns. Without this a single overflowing child drags the whole page. */
+  overflow-x: hidden;
+}
+
+code,
+.mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* One focus treatment for everything. Previously the only focus rule in the whole
+ * stylesheet was `.input:focus`, so keyboard users had no idea where they were. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px 16px;
+  /* Was nowrap, which overflowed by 87px at 414px and pushed the connection badge
+   * clean off the screen. */
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  /* Above the task drawer: the connection badge and the account button must stay
+   * reachable while a task is open. */
+  z-index: 50;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.logo {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.board-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-name .where {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    padding: 10px 12px;
+  }
+
+  /* The mark alone identifies the app; the wordmark was wrapping to two lines. */
+  .brand .wordmark {
+    display: none;
+  }
+
+  /* Its own row rather than a sliver squeezed between two buttons. */
+  .board-name {
+    order: 10;
+    flex: 1 1 100%;
+  }
+
+  /* Three rows of sticky chrome is a quarter of a phone screen. The settled
+   * connection shrinks to a dot, and the sidebar toggle goes: below 900px the
+   * sidebar is stacked under the board anyway, so collapsing it saves nothing
+   * a scroll would not. */
+  .badge.quiet .badge-text {
+    display: none;
+  }
+
+  .badge.quiet .dot {
+    display: block;
+  }
+
+  .info-toggle {
+    display: none;
+  }
+
+  /* The avatar alone identifies the account button once space is short. */
+  .account-name {
+    display: none;
+  }
+
+  .button.account {
+    padding: 5px;
+  }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.badge .dot {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.badge.ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+
+.badge.pending {
+  color: var(--pending);
+  border-color: color-mix(in srgb, var(--pending) 45%, transparent);
+}
+
+.badge.bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+/* ---------- notices ---------- */
+
+/* Two channels, not one. Every message used to arrive in a bar tinted with
+ * --danger, so "reconnected — your changes have been re-sent" was delivered in
+ * the same red as a failure. */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--tone) 12%, var(--bg-panel));
+  border-bottom: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
+}
+
+.notice.error {
+  --tone: var(--danger);
+}
+
+.notice.warn {
+  --tone: var(--pending);
+}
+
+.notice.ok {
+  --tone: var(--ok);
+}
+
+.notice.info {
+  --tone: var(--info);
+}
+
+.notice .tone-mark {
+  color: var(--tone);
+  font-weight: 600;
+}
+
+.notice span.grow {
+  flex: 1;
+}
+
+/* ---------- layout ---------- */
+
+.main {
+  flex: 1;
+  min-height: 0;
+  padding: 20px;
+}
+
+@media (max-width: 720px) {
+  .main {
+    padding: 12px;
+  }
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.workspace.sidebar-hidden {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.centered {
+  max-width: 640px;
+  margin: 6vh auto;
+}
+
+/* The start page is a set of independent cards, so on a wide screen it should
+ * fill the width instead of stacking into a 1279px-tall single column. */
+.centered.wide {
+  max-width: 1040px;
+  margin: 3vh auto;
+}
+
+/* ---------- organization page ---------- */
+
+.org-page {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.org-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  /* Top-aligned, so the sentence explaining the id sits beside the title rather
+   * than floating above it like a page-level caption. */
+  align-items: start;
+  justify-content: space-between;
+}
+
+.org-head h1 {
+  font-size: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.org-head > .stack {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.org-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check input {
+  accent-color: var(--accent);
+}
+
+/* ---------- memberships and task links ---------- */
+
+.memberships,
+.nested,
+.task-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memberships > li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nested {
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  margin-left: 4px;
+}
+
+.nested > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nested .directory-entry {
+  padding: 6px 10px;
+}
+
+.task-links > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pending-link {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--pending) 40%, transparent);
+  border-radius: 8px;
+}
+
+/* ---------- directory ---------- */
+
+.directory {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.directory-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.directory-entry:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.directory-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.row.wrap {
+  flex-wrap: wrap;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  font-size: 12px;
+}
+
+/* ---------- board ---------- */
+
+.board {
+  display: flex;
+  gap: 20px;
+  align-items: start;
+  min-width: 0;
+}
+
+.columns {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  /* When there are more columns than fit, the strip scrolls — say so rather than
+   * letting the last one look severed. */
+  scrollbar-width: thin;
+  padding-bottom: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  /* 272px fixed meant the four default columns needed 1130px and got 931px with
+   * the sidebar open, so a board clipped its own last column on a laptop.
+   *
+   * The floor matters as much as the basis: at 236px the four default columns
+   * still needed 986px and only just cleared a 1440px window, so trimming the
+   * window by a few dozen pixels sliced the last one in half again. 200px keeps
+   * a card legible while leaving real slack. */
+  flex: 1 1 200px;
+  min-width: 200px;
+  max-width: 320px;
+  max-height: calc(100vh - 160px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* The stage rail: position in the board is the only thing we can read as
+   * progress, since columns are user-defined and their names are unknown. */
+  border-top: 3px solid hsl(var(--stage-h, 215) var(--stage-s) var(--stage-l));
+}
+
+.column-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 8px;
+}
+
+.column-head h3 {
+  flex: 1;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: hsl(var(--stage-h, 215) var(--stage-s) var(--stage-l));
+  overflow-wrap: anywhere;
+}
+
+.count {
+  font-size: 12px;
+  color: hsl(var(--stage-h, 215) var(--stage-s) var(--stage-l));
+  background: hsl(var(--stage-h, 215) var(--stage-bg-s) var(--stage-bg-l));
+  border: 1px solid
+    hsl(var(--stage-h, 215) var(--stage-s) var(--stage-l) / 0.4);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+
+/* The board and anything stacked under it, as a single grid item. */
+.board-area {
+  min-width: 0;
+}
+
+.empty-hint {
+  max-width: 52ch;
+  margin: 20px 0 0;
+}
+
+/* An editable column name has to sit in the header without looking like a form:
+   no chrome until you touch it, so a board still reads as a board. */
+/* Specificity, not order: `.input` sets `width: 100%` and `min-width: 0` several
+   hundred lines further down, and a bare `.column-title` loses to it on the
+   later-wins rule. `flex-basis: 0` because an input carries an intrinsic width
+   from its `size` attribute, which the header would otherwise honour before
+   giving the title any room. */
+.column-head .column-title {
+  flex: 1 1 0;
+  min-width: 4ch;
+  padding: 2px 6px;
+  border-color: transparent;
+  background: transparent;
+  font-size: inherit;
+  font-weight: 600;
+}
+
+.column-head .column-title:hover {
+  border-color: var(--border);
+}
+
+.column-head .column-title:focus {
+  border-color: var(--border-strong);
+  background: var(--bg-panel);
+}
+
+/* Out of flow, deliberately. In flow these three buttons took 91px of a 176px
+   header and clipped every column name to "Tod" — and they are worth far less
+   than the name of the column. Overlaying them costs nothing while they are
+   hidden, which is nearly always. */
+.column-head {
+  position: relative;
+}
+
+.column-tools {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 5px;
+  border-radius: 8px;
+  background: var(--bg-panel);
+  opacity: 0;
+  /* So the hidden strip cannot swallow a click aimed at the title under it. */
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+/* Revealed on hover or when anything inside has focus, so the controls stay
+   reachable from the keyboard rather than only from a pointer. */
+.column:hover .column-tools,
+.column:focus-within .column-tools {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Not a real column, so it must not claim a real column's share of the row —
+   `.column` is `flex: 1 1 200px`, which would give the add box as much space as
+   the work. */
+.column-new {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: 220px;
+  background: transparent;
+  border-style: dashed;
+}
+
+/* A board-wide notice with an action attached — something the board needs the
+   user to decide, as opposed to `.notice`, which reports what already happened. */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  font-size: 0.9rem;
+}
+
+/* ---------- cards ---------- */
+
+.card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  cursor: grab;
+  box-shadow: var(--shadow);
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.card:active {
+  cursor: grabbing;
+}
+
+.card.selected {
+  border-color: var(--accent);
+  box-shadow: var(--shadow), 0 0 0 1px var(--accent);
+}
+
+/* The card being carried, so the placeholder it leaves behind is legible. */
+.card.lifted {
+  opacity: 0.4;
+}
+
+.card-title {
+  display: block;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.card-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  min-height: 0;
+}
+
+.card-meta:empty {
+  display: none;
+}
+
+.chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  white-space: nowrap;
+}
+
+.chip.subtle {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+/* Who owns this, readable before you read it. */
+.chip.person {
+  background: hsl(var(--member-h, 190) var(--person-bg-s) var(--person-bg-l));
+  color: hsl(var(--member-h, 190) var(--person-s) var(--person-l));
+  border-color: hsl(var(--member-h, 190) var(--person-br-s) var(--person-br-l));
+}
+
+/* Drop targets stay collapsed until something is actually being dragged.
+ *
+ * Arming deliberately does not change the height: every zone on the board arms at
+ * once, and growing them all reflowed the entire board the instant a card was
+ * lifted. Only the zone under the pointer expands. */
+.dropzone {
+  height: 8px;
+  border-radius: 4px;
+  margin: 1px 0;
+  transition: height 0.1s ease, background-color 0.1s ease;
+}
+
+.dropzone.armed {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.dropzone.armed.over {
+  height: 26px;
+  margin: 3px 0;
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.new-card {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- task: drawer on the board, page at its own address ---------- */
+
+/* The drawer. Opening a card while working through a column should not take the
+ * column away, so on the board a task stays an overlay.
+ *
+ * Fixed rather than a flex sibling of `.columns`: as a sibling it took 320px out
+ * of the board, and the visible column area fell from 931px to 591px on a laptop
+ * and to 34px on a phone. */
+.detail {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 100vw);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg-panel);
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  /* Clears the sticky top bar, which sits above the drawer. Approximate by
+   * design: the bar is one row of 36px controls plus its padding. */
+  padding: 72px 16px 16px;
+  box-shadow: -8px 0 32px rgb(0 0 0 / 0.3);
+}
+
+/* Where the bar wraps the project name onto a second line. */
+@media (max-width: 720px) {
+  .detail {
+    padding-top: 92px;
+  }
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: rgb(0 0 0 / 0.45);
+  border: 0;
+}
+
+/* On a wide screen the drawer sits beside a board that stays usable, so nothing
+ * should intercept clicks on it. */
+@media (min-width: 901px) {
+  .drawer-backdrop {
+    display: none;
+  }
+}
+
+/* The page, which is what a task *link* opens — a drawer has no address, so it
+ * cannot be sent to anybody or survive a reload.
+ *
+ * Unconstrained, the form would stretch across a whole monitor. Capped at a
+ * comfortable measure and centred. */
+.task-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The task's own title, so the page says what it is without reading the form. */
+.detail-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field > span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ---------- sidebar ---------- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.facts dt {
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  text-align: right;
+}
+
+.members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.members li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.members li.inactive {
+  opacity: 0.45;
+}
+
+/* The name and its badges. Previously a chip followed a bare text node inside one
+ * span, and the list's own gap does not reach inside, so it rendered as
+ * "anon-DYm77XzUfounder". */
+.who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: hsl(var(--member-h, 190) var(--person-bg-s) var(--person-bg-l));
+  color: hsl(var(--member-h, 190) var(--person-s) var(--person-l));
+  border: 1px solid hsl(var(--member-h, 190) var(--person-br-s) var(--person-br-l));
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* ---------- picker ---------- */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Two explicit columns, not `auto-fit`. With auto-fit the full-width projects
+ * panel keeps a third track alive, so the two panels beneath it could never
+ * collapse into it and left a dead column on the right. */
+.picker.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .picker.grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Discovery is the point of the start page, so it gets the whole first row. */
+.picker.grid .span-all {
+  grid-column: 1 / -1;
+}
+
+/* ---------- controls ---------- */
+
+.input {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  resize: vertical;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.button {
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 36px;
+}
+
+.button:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+}
+
+.button.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.button.small {
+  padding: 5px 10px;
+  font-size: 12px;
+  min-height: 30px;
+}
+
+.button.account {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 5px;
+}
+
+.button.account .avatar,
+.avatar.tiny {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  font-size: 10px;
+}
+
+.button.danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  /* Was 18px tall, under the 24px minimum target size. */
+  min-height: 24px;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.link:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.link.danger {
+  color: var(--danger);
+}
+
+.link.danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+/* A destructive control that has asked for a second click. */
+.link.arming,
+.button.arming {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  border-color: var(--danger);
+  font-weight: 600;
+}
+
+/* ---------- account ---------- */
+
+.identity-head {
+  align-items: end;
+}
+
+.avatar.large {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  font-size: 18px;
+}
+
+.qr {
+  align-self: start;
+  /* The code needs its own white field whatever the page is doing around it. */
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 8px;
+  line-height: 0;
+}
+
+.qr svg {
+  display: block;
+  width: 180px;
+  height: 180px;
+}
+
+/* A fixed slot for a row's trailing action, present whether or not the row has
+ * one, so a list of the same kind of thing keeps one right edge. */
+.gutter {
+  flex: 0 0 58px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.group-label {
+  margin: 4px 0 0;
+}
+
+/* A section heading inside a panel, below the panel's own h2. */
+.panel-heading {
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.add-device {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+/* Two answers to one question, so they get equal weight and one shared edge —
+ * sized by their content they came out ragged side by side and worse stacked. */
+.add-device .row.wrap > .button {
+  flex: 1 1 200px;
+}
+
+/* The half of the handshake you said you were on. */
+.button.chosen {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight: 600;
+}
+
+/* The chosen half's content, tied back to the choice above it. */
+.side {
+  border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  padding-left: 12px;
+}
+
+.warn {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--pending);
+  background: color-mix(in srgb, var(--pending) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pending) 35%, transparent);
+}
+
+.reveal > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 0;
+  min-height: 24px;
+}
+
+.reveal[open] > summary {
+  margin-bottom: 8px;
+}
+
+.reveal > *:not(summary) {
+  margin-bottom: 8px;
+}
+
+.boot-error {
+  margin: 40px;
+  padding: 16px;
+  white-space: pre-wrap;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+/* Present for screen readers, absent visually. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

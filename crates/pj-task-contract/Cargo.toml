@@ -1,0 +1,34 @@
+[package]
+name = "pj-task-contract"
+description = "Freenet contract governing a single freenet-pj task"
+version.workspace = true
+# Edition 2024 is fine here even though freenet-macros' `#[contract]` emits a bare
+# `#[no_mangle]`, which 2024 otherwise rejects in favour of `#[unsafe(no_mangle)]`:
+# that rule is the `unsafe_attr_outside_unsafe` lint, and rustc does not fire lints
+# on code expanded from another crate's macro.
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+# cdylib for the wasm the node runs; rlib so the contract logic stays testable
+# from a native `cargo test`.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pj-core.workspace = true
+freenet-stdlib.workspace = true
+
+[dev-dependencies]
+# Tests need to mint keys and sign ops the way a client would.
+ed25519-dalek.workspace = true
+
+[features]
+default = ["contract", "freenet-main-contract"]
+contract = ["freenet-stdlib/contract"]
+# Gates the `#[no_mangle] extern "C"` entry points the node links against.
+freenet-main-contract = []
+trace = ["freenet-stdlib/trace"]
+
+[lints]
+workspace = true

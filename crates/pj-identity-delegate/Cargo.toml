@@ -1,0 +1,26 @@
+[package]
+name = "pj-identity-delegate"
+description = "Freenet delegate holding a freenet-pj user's signing key"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pj-identity-proto.workspace = true
+freenet-stdlib.workspace = true
+
+[features]
+default = ["contract", "freenet-main-delegate"]
+# The delegate's wasm entry point lives behind stdlib's `contract` feature, same
+# as a contract's does.
+contract = ["freenet-stdlib/contract"]
+# Gates the `#[no_mangle] extern "C" fn process` the node links against.
+freenet-main-delegate = []
+trace = ["freenet-stdlib/trace"]
+
+[lints]
+workspace = true
