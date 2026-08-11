@@ -14,29 +14,31 @@
 /* The palette, in priority order:
  *
  *   Blue Spruce    #0f766e  hue 175   brand and interaction
- *   Icy Blue       #b3e5fc  hue 199   the far end of the stage ramp, and info
- *   Indigo Velvet  #49306b  hue 265   the dark theme's surfaces
- *   Dusty Grape    #635380  hue 261   mid stage, base of the per-person band
- *   Dusty Mauve    #90708c  hue 308   earliest stage
+ *   Forest Ink     #101311             dark surfaces
+ *   Lichen Wash    #edf2eb             light page surface
+ *   Warm Amber     #f1c36d             secondary emphasis
+ *   Icy Blue       #b3e5fc  hue 199   info and the far end of the stage ramp
  *
  * Severity keeps red, amber and green. They are not in the palette, and they are
- * the one place where colour has to mean something before it is read — nothing in
- * a purple family says "this deletes your work".
+ * the one place where colour has to mean something before it is read.
  */
 :root {
-  /* Surfaces are Indigo Velvet taken down to background weight, so the dark theme
-   * reads as tinted rather than neutral slate. */
-  --bg: #14101c;
-  --bg-panel: #1e1830;
-  --bg-raised: #272038;
-  --border: #3a2f52;
-  --border-strong: #544671;
-  --text: #ede9f5;
-  --text-muted: #a79cbe;
+  --bg: #101311;
+  --bg-panel: #181c19;
+  --bg-raised: #202620;
+  --bg-soft: #151815;
+  --border: #30382f;
+  --border-strong: #53614f;
+  --text: #f0f2ed;
+  --text-muted: #aab3a4;
   /* Blue Spruce is far too dark to read on these surfaces; this is the same hue
    * carried up to a legible lightness so the brand stays teal in both themes. */
-  --accent: #45c7b8;
-  --accent-ink: #06231f;
+  --accent: #5ecfbf;
+  --accent-ink: #061f1b;
+  --accent-soft: #f1c36d;
+  --scrollbar-track: color-mix(in srgb, var(--bg) 78%, var(--border));
+  --scrollbar-thumb: color-mix(in srgb, var(--border-strong) 78%, var(--text-muted));
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--accent) 58%, var(--text-muted));
   --danger: #f0787a;
   /* Blue Spruce, not a separate green. Two greens a few degrees apart read as an
    * error rather than a distinction. */
@@ -44,7 +46,7 @@
   --pending: #e6c86e;
   --info: #b3e5fc;
   --radius: 10px;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.25);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 14px 40px rgb(0 0 0 / 0.28);
 
   /* Only the saturation and lightness live here. A var() inside a custom property
    * is substituted where that property is *declared* — so a `--stage-fg` built
@@ -72,20 +74,25 @@
   /* A real elevation ladder: page → panel → card. Previously --bg-raised and
    * --bg-panel were both #ffffff, so a card and the column holding it were the
    * same colour and only a 1.29:1 border told them apart. */
-  /* The page is a pale wash of Icy Blue, so the light theme sits in the same
-   * family as the dark one instead of reverting to neutral grey. */
-  --bg: #e8f1f8;
-  --bg-panel: #f7fbfd;
+  /* The page is a pale wash of green, so the light theme stays in the same
+   * product family as the dark one instead of reverting to neutral grey. */
+  --bg: #edf2eb;
+  --bg-panel: #fbfcf8;
   --bg-raised: #ffffff;
-  --border: #c6d6e4;
-  --border-strong: #8fa3b6;
-  /* Ink derived from Indigo Velvet rather than black. */
-  --text: #1e1730;
-  --text-muted: #59506b;
+  --bg-soft: #f4f7f1;
+  --border: #d6decf;
+  --border-strong: #9fac95;
+  /* Ink with a little green in it rather than pure black. */
+  --text: #20261f;
+  --text-muted: #5b6657;
   /* Blue Spruce unmodified: measured 5.47:1 as text on white and 5.47:1 under
    * white text, so it carries both jobs. */
   --accent: #0f766e;
   --accent-ink: #ffffff;
+  --accent-soft: #8a6308;
+  --scrollbar-track: color-mix(in srgb, var(--bg-soft) 82%, var(--border));
+  --scrollbar-thumb: color-mix(in srgb, var(--border-strong) 72%, var(--text-muted));
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--accent) 62%, var(--border-strong));
   --danger: #b3261e;
   --ok: #0f766e;
   --pending: #8a6308;
@@ -110,7 +117,9 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 260px),
+    var(--bg);
   color: var(--text);
   font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -171,27 +180,36 @@ h2 {
   /* Was nowrap, which overflowed by 87px at 414px and pushed the connection badge
    * clean off the screen. */
   flex-wrap: wrap;
-  padding: 12px 20px;
-  background: var(--bg-panel);
+  padding: 12px 24px;
+  background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   /* Above the task drawer: the connection badge and the account button must stay
    * reachable while a task is open. */
   z-index: 50;
+  backdrop-filter: blur(12px);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 600;
+  gap: 10px;
+  font-weight: 700;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .logo {
-  color: var(--accent);
-  font-size: 18px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 7px;
+  font-size: 15px;
+  box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.18);
 }
 
 .board-name {
@@ -211,6 +229,7 @@ h2 {
 @media (max-width: 720px) {
   .topbar {
     padding: 10px 12px;
+    gap: 8px;
   }
 
   /* The mark alone identifies the app; the wordmark was wrapping to two lines. */
@@ -234,6 +253,27 @@ h2 {
 
   .badge.quiet .dot {
     display: block;
+  }
+
+  .badge {
+    padding: 3px 8px;
+  }
+
+  .topbar > .row {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .topbar > .row .badge {
+    min-width: 0;
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar > .row .button.small {
+    padding-inline: 8px;
   }
 
   .info-toggle {
@@ -329,7 +369,7 @@ h2 {
 .main {
   flex: 1;
   min-height: 0;
-  padding: 20px;
+  padding: 24px;
 }
 
 @media (max-width: 720px) {
@@ -340,8 +380,8 @@ h2 {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
   align-items: start;
 }
 
@@ -357,14 +397,92 @@ h2 {
 
 .centered {
   max-width: 640px;
-  margin: 6vh auto;
+  margin: 5vh auto;
 }
 
 /* The start page is a set of independent cards, so on a wide screen it should
  * fill the width instead of stacking into a 1279px-tall single column. */
 .centered.wide {
-  max-width: 1040px;
-  margin: 3vh auto;
+  max-width: 1120px;
+  margin: 2vh auto;
+}
+
+.start-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.start-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: end;
+  padding: clamp(22px, 4vw, 38px);
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent 42%),
+    linear-gradient(180deg, var(--bg-raised), var(--bg-panel));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.start-hero h1 {
+  font-size: clamp(2.2rem, 6vw, 4.8rem);
+  line-height: 0.95;
+  letter-spacing: 0;
+  max-width: 8ch;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--accent-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.start-copy {
+  max-width: 64ch;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.hero-stats {
+  display: grid;
+  gap: 8px;
+  min-width: 190px;
+}
+
+.hero-stats span {
+  display: block;
+  padding: 9px 12px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-panel) 72%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .start-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 20px;
+  }
+
+  .hero-stats {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .hero-stats span {
+    text-align: left;
+    padding: 8px 6px;
+    font-size: 12px;
+  }
 }
 
 /* ---------- organization page ---------- */
@@ -471,7 +589,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 340px;
+  max-height: 380px;
   overflow-y: auto;
 }
 
@@ -484,14 +602,17 @@ h2 {
   background: var(--bg-raised);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 9px 12px;
+  border-radius: 7px;
+  padding: 11px 13px;
   font: inherit;
   cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 
 .directory-entry:hover {
   border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-raised));
+  transform: translateY(-1px);
 }
 
 .directory-name {
@@ -534,22 +655,68 @@ h2 {
   font-size: 12px;
 }
 
+.directory,
+.columns,
+.cards,
+.detail {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+.directory::-webkit-scrollbar,
+.columns::-webkit-scrollbar,
+.cards::-webkit-scrollbar,
+.detail::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.directory::-webkit-scrollbar-track,
+.columns::-webkit-scrollbar-track,
+.cards::-webkit-scrollbar-track,
+.detail::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+.directory::-webkit-scrollbar-thumb,
+.columns::-webkit-scrollbar-thumb,
+.cards::-webkit-scrollbar-thumb,
+.detail::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: 2px solid var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+.directory::-webkit-scrollbar-thumb:hover,
+.columns::-webkit-scrollbar-thumb:hover,
+.cards::-webkit-scrollbar-thumb:hover,
+.detail::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.directory::-webkit-scrollbar-corner,
+.columns::-webkit-scrollbar-corner,
+.cards::-webkit-scrollbar-corner,
+.detail::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* ---------- board ---------- */
 
 .board {
   display: flex;
-  gap: 20px;
+  gap: 18px;
   align-items: start;
   min-width: 0;
 }
 
 .columns {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   overflow-x: auto;
   /* When there are more columns than fit, the strip scrolls — say so rather than
    * letting the last one look severed. */
-  scrollbar-width: thin;
   padding-bottom: 8px;
   flex: 1;
   min-width: 0;
@@ -567,11 +734,11 @@ h2 {
    * a card legible while leaving real slack. */
   flex: 1 1 200px;
   min-width: 200px;
-  max-width: 320px;
+  max-width: 340px;
   max-height: calc(100vh - 160px);
-  background: var(--bg-panel);
+  background: color-mix(in srgb, var(--bg-panel) 88%, var(--bg-soft));
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 9px;
   /* The stage rail: position in the board is the only thing we can read as
    * progress, since columns are user-defined and their names are unknown. */
   border-top: 3px solid hsl(var(--stage-h, 215) var(--stage-s) var(--stage-l));
@@ -581,7 +748,8 @@ h2 {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px 8px;
+  padding: 13px 14px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .column-head h3 {
@@ -606,7 +774,7 @@ h2 {
 .cards {
   flex: 1;
   overflow-y: auto;
-  padding: 0 10px;
+  padding: 2px 10px;
 }
 
 /* The board and anything stacked under it, as a single grid item. */
@@ -683,7 +851,7 @@ h2 {
 .column-new {
   flex: 0 0 auto;
   align-self: flex-start;
-  width: 220px;
+  width: 230px;
   background: transparent;
   border-style: dashed;
 }
@@ -699,7 +867,7 @@ h2 {
   padding: 10px 14px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  background: var(--bg-raised);
+  background: color-mix(in srgb, var(--accent-soft) 8%, var(--bg-raised));
   font-size: 0.9rem;
 }
 
@@ -712,16 +880,19 @@ h2 {
   background: var(--bg-raised);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 7px;
+  padding: 11px 12px;
   font: inherit;
   cursor: grab;
-  box-shadow: var(--shadow);
-  transition: border-color 0.12s ease, transform 0.12s ease;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.16);
+  transition: background-color 0.12s ease, border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .card:hover {
   border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-raised));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
 }
 
 .card:active {
@@ -876,10 +1047,11 @@ h2 {
   gap: 14px;
   width: min(720px, 100%);
   margin: 0 auto;
-  padding: 16px;
+  padding: 18px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
 }
 
 .detail-head {
@@ -911,17 +1083,18 @@ h2 {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: var(--bg-panel);
+  background: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-raised));
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 9px;
   padding: 16px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
 }
 
 .facts {
@@ -1000,7 +1173,7 @@ h2 {
 .picker.grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
   align-items: start;
 }
 
@@ -1020,34 +1193,40 @@ h2 {
 .input {
   width: 100%;
   min-width: 0;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 78%, var(--bg-raised));
   color: var(--text);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 8px 10px;
   font: inherit;
   resize: vertical;
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
+  background: var(--bg-raised);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .button {
-  background: var(--bg-raised);
+  background: color-mix(in srgb, var(--bg-raised) 88%, var(--bg-panel));
   color: var(--text);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 8px 14px;
   font: inherit;
   cursor: pointer;
   white-space: nowrap;
   min-height: 36px;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 
 .button:hover {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-raised));
+  transform: translateY(-1px);
 }
 
 .button.primary {
@@ -1055,6 +1234,7 @@ h2 {
   color: var(--accent-ink);
   border-color: var(--accent);
   font-weight: 600;
+  box-shadow: 0 1px 0 color-mix(in srgb, #ffffff 28%, transparent) inset;
 }
 
 .button.small {

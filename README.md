@@ -292,6 +292,82 @@ member cannot invite others, that deletion beats a concurrent edit, that a
 forged signature is rejected, and that fractional ranks survive hundreds of
 insertions into the same gap.
 
+### Visual verification
+
+For UI changes, verify the built app rather than a partial source tree:
+
+```sh
+./scripts/build.sh
+cd dist
+python3 -m http.server 4173 --bind 127.0.0.1
+```
+
+Then render `http://127.0.0.1:4173/` in a browser at both a desktop viewport
+and a narrow mobile viewport, at least `1440x1000` and `390x844`.
+
+The reliable check is not "does a screenshot exist"; it is:
+
+- set the viewport explicitly through the browser automation API, Chrome DevTools
+  Protocol, or the Codex browser `viewport` capability;
+- wait for the wasm app to boot;
+- capture a screenshot for human inspection;
+- assert that no visible element's bounding box extends outside
+  `window.innerWidth`; and
+- assert that `document.documentElement.clientWidth` and the page `scrollWidth`
+  match at the mobile width.
+
+Do not use Chrome's bare `--headless --screenshot --window-size=390,844` as the
+only mobile check. On macOS it can produce a cropped image that looks like a
+responsive layout failure even when the browser was not actually using the
+intended viewport. Use DevTools viewport emulation, or the in-app browser's
+`viewport` capability, when checking breakpoints.
+
+When using Codex's in-app browser through the Node REPL, save screenshots and
+metrics to files if normal REPL output is not visible. The browser API can still
+work even when `nodeRepl.write(...)` output is suppressed. Also treat screenshot
+bytes as opaque until identified; the in-app browser may return JPEG bytes even
+when the destination filename says `.png`.
+
+### Freenet visual development workflow
+
+Freenet UI work should be developed in two stages. First iterate on the built
+static site outside Freenet, then publish the same `dist/` output to a local node
+as an integration smoke test.
+
+```sh
+./scripts/build.sh
+python3 -m http.server 4173 --directory dist --bind 127.0.0.1
+```
+
+Use `http://127.0.0.1:4173/` for the main visual loop. This is the fastest and
+most reliable way to check layout, styling, wasm boot, console errors, and
+desktop/mobile screenshots. It matches the public Freenet app pattern: build a
+normal web UI with local example data or a local API surface, then wrap the
+finished artifact as a Freenet web contract.
+
+After the static build passes visual checks, verify the Freenet wrapper:
+
+```sh
+./scripts/publish.sh
+```
+
+Open the printed `http://127.0.0.1:7509/v1/contract/web/.../` URL and check the
+Freenet-specific behavior separately:
+
+- the shell page loads and creates the sandbox iframe;
+- the iframe navigates away from `about:blank` to the `?__sandbox=1` app URL;
+- the app body contains real UI text, not only the shell title;
+- `styles.css`, `pj_web.js`, and `pj_web_bg.wasm` return 200 with the expected
+  CSS, JavaScript, and WebAssembly MIME types;
+- browser console and network logs have no boot-blocking errors; and
+- desktop and mobile screenshots still have no horizontal overflow.
+
+If the direct static site works but the Freenet URL is blank, debug the shell,
+sandbox iframe, CSP, injected bridge, and asset loading before changing CSS. A
+blank Freenet page can mean the wrapper received the sandbox document but the
+iframe never committed navigation, which is a Freenet integration issue rather
+than a visual layout issue.
+
 ## Known limitations
 
 These are deliberate v1 trade-offs, not oversights.

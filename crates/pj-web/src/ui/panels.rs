@@ -18,12 +18,31 @@ use crate::ui::{Confirm, app_url, copy, member_hue, share};
 #[component]
 pub(crate) fn StartPage(store: Store) -> impl IntoView {
     view! {
-        <div class="picker grid">
-            <div class="span-all">
-                <Directory store=store />
+        <div class="start-page">
+            <section class="start-hero" aria-labelledby="start-title">
+                <div class="stack">
+                    <p class="kicker">"Peer-owned project boards"</p>
+                    <h1 id="start-title">"freenet-pj"</h1>
+                    <p class="start-copy">
+                        "Create, find, and work on project boards whose state lives on Freenet.
+                         Your browser signs changes, the network carries them, and the board keeps
+                         working without an application server."
+                    </p>
+                </div>
+                <div class="hero-stats" aria-label="What this app supports">
+                    <span>"Boards"</span>
+                    <span>"Organizations"</span>
+                    <span>"Task links"</span>
+                </div>
+            </section>
+
+            <div class="picker grid">
+                <div class="span-all">
+                    <Directory store=store />
+                </div>
+                <CreateBoard store=store />
+                <OrgDirectory store=store />
             </div>
-            <CreateBoard store=store />
-            <OrgDirectory store=store />
         </div>
     }
 }
